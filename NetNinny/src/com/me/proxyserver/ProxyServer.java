@@ -2,6 +2,7 @@ package com.me.proxyserver;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.Scanner;
 
 public class ProxyServer {
@@ -19,15 +20,21 @@ public class ProxyServer {
 //        }
 
 
-
-
         ss = new ServerSocket(port);
-//        String redirect = "HTTP/1.1 302 Found Location: http://www.ida.liu.se/~TDTS04/labs/2011/ass2/error1.html";
-
-
-        System.out.println("Listening on port " + port);
         while (true) {
-            new Client(ss.accept()).start();
+//            System.out.println("Listening on port " + port);
+            Socket clientServerSocket = ss.accept();
+            String getRequest = Util.readStream(clientServerSocket.getInputStream(), true);
+            String url = Util.extractStringByPrefix(getRequest, "http", "\n");
+//            System.out.println(url);
+            if (Util.containsBannedWords(url)) {
+                String redirectURL = "HTTP/1.1 301 Moved Permanently\r\nConnection: keep-alive\r\nLocation: http://www.ida.liu.se/~TDTS04/labs/2011/ass2/error1.html\r\n\r\n ";
+                byte[] byteReponse = redirectURL.getBytes();
+                clientServerSocket.getOutputStream().write(byteReponse);
+                clientServerSocket.getOutputStream().flush();
+            } else {
+                new Client(clientServerSocket, getRequest).start();
+            }
         }
     }
 }

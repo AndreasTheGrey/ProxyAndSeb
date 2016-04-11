@@ -18,12 +18,14 @@ public class Client extends Thread {
 
     private InputStream input;
     private OutputStream output;
+    private String getRequest;
 
-    public Client(Socket serversSocket) {
+    public Client(Socket serversSocket, String getRequest) {
 
         try {
             input = serversSocket.getInputStream();
             output = serversSocket.getOutputStream();
+            this.getRequest = getRequest;
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -33,27 +35,26 @@ public class Client extends Thread {
     @Override
     public void run() {
         try {
-            boolean isImage = false;
+            boolean isText = false;
             //Read the http request stream from the browser
-            String getRequest = readStream(input, true);
             if (getRequest.isEmpty()) {
                 return;
             }
 
-            System.out.println("\n\n------------------BROWSER REQUEST-------------------\n\n");
-            System.out.println(getRequest);
+//            System.out.println("\n\n------------------BROWSER REQUEST-------------------\n\n");
+//            System.out.println(getRequest);
 
-            String parsedHostname = extractStringByPrefix(getRequest, "Host: ", "\n"); //extract important headers
-            String parsedConnection = extractStringByPrefix(getRequest, "Connection: ", "\n"); //extract important headers
-            String parsedAcceptedFormat = extractStringByPrefix(getRequest, "Accept: ", "/");
-            if (parsedAcceptedFormat.toLowerCase().equals("image")) {
-                System.out.println("YEAH ITS A FUCKING IMAGE!");
-                isImage = true;
+            String parsedHostname = Util.extractStringByPrefix(getRequest, "Host: ", "\n"); //extract important headers
+            String parsedConnection = Util.extractStringByPrefix(getRequest, "Connection: ", "\n"); //extract important headers
+            String parsedAcceptedFormat = Util.extractStringByPrefix(getRequest, "Accept: ", "/");
+
+            if (parsedAcceptedFormat.toLowerCase().equals("text")) {
+                isText = true;
             }
 
 
             if (!parsedConnection.isEmpty()) {
-                getRequest = getRequest.replaceAll(parsedConnection, "close"); //if Connection header has status "keep-alive", replace with "close"
+                getRequest = getRequest.replaceAll(parsedConnection.toLowerCase(), "close"); //if Connection header has status "keep-alive", replace with "close"
             }
 
 
@@ -79,73 +80,32 @@ public class Client extends Thread {
                 builder.append(new String(bytes, StandardCharsets.UTF_8));
                 index = is.read(by, 0, 256);
             }
-            System.out.println("----Server Response-----");
+//            System.out.println("----Server Response-----");
 
             boolean allowed = true;
-            if (!isImage) {
-                System.out.println("About to check bad words");
+            if (isText) {
                 String response = builder.toString().toLowerCase();
-                String[] bannedWords = new String[]{"SpongeBob", "Britney Spears", "Paris Hilton", "Norrköping"};
-                System.out.println("About to check the following string for bad words");
-                for (String bannedWord : bannedWords) {
-
-                    System.out.println("Checking if contains " + bannedWord);
-                    if (response.contains(bannedWord.toLowerCase())) {
-                        System.out.println("Detected bad words");
-                        String redirect = "HTTP/1.1 301 Moved Permanently\r\nConnection: keep-alive\r\nLocation: http://www.ida.liu.se/~TDTS04/labs/2011/ass2/error2.html\r\n\r\n ";
-                        byte[] he = redirect.getBytes();
-                        output.write(he);
-                        allowed = false;
-                    }
+                if (Util.containsBannedWords(response)) {
+                    String redirect = "HTTP/1.1 301 Moved Permanently\r\nConnection: keep-alive\r\nLocation: http://www.ida.liu.se/~TDTS04/labs/2011/ass2/error2.html\r\n\r\n ";
+                    byte[] he = redirect.getBytes();
+                    output.write(he);
+                    allowed = false;
                 }
             }
 
             if (allowed) {
-                System.out.println("EWDACESREFGMJHNTRFHGJ");
                 for (byte[] b : bufferBytes) {
-                    System.out.println(builder.toString());
+                    //System.out.println(builder.toString());
                     output.write(b);
                 }
             }
             output.flush();
+            os.close();
+            is.close();
+            outgoingSocket.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    /**
-     * Given an input stream, reads until the end
-     */
-    private String readStream(InputStream input, boolean breakIfEmpty) throws IOException {
-        BufferedReader br = new BufferedReader(new InputStreamReader(input));
-        StringBuilder builder = new StringBuilder();
-
-        String c;
-        while ((c = br.readLine()) != null) {
-            if (c.isEmpty()) {
-                if (breakIfEmpty) {
-                    break;
-                } else {
-                    String parsedContentType = extractStringByPrefix(builder.toString(), "Content-Type: ", "/");
-                    if (parsedContentType.toLowerCase().contains("image")) {
-
-                    }
-                }
-            }
-            builder.append(c + "\n");
-        }
-
-        return builder.toString();
-    }
-
-    /**
-     * Extracts the string between two prefixes
-     */
-
-    public String extractStringByPrefix(String stringToSearch, String starPrefix, String endPrefix) {
-        int startIndex = stringToSearch.indexOf(starPrefix) + starPrefix.length();
-        int endIndex = stringToSearch.indexOf(endPrefix, startIndex);
-        return stringToSearch.substring(startIndex, endIndex).trim();
     }
 
 }
