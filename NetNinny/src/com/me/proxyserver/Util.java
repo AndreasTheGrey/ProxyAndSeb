@@ -8,15 +8,21 @@ import java.io.InputStreamReader;
 
 public class Util {
     private static String[] bannedWords = new String[]{"SpongeBob", "Britney Spears", "Paris Hilton", "Norrkoping", "Norrköping"};
-    public static boolean containsBannedWords(String toCheck){
+
+
+    /**
+     * Given a string, checks if that string contains one of the words in bannedWords list.
+     */
+    public static boolean containsBannedWords(String toCheck) {
         toCheck = toCheck.toLowerCase();
-        for(String word : bannedWords){
-            if(toCheck.contains(word.toLowerCase())){
+        for (String word : bannedWords) {
+            if (toCheck.contains(word.toLowerCase())) {
                 return true;
             }
         }
         return false;
     }
+
     /**
      * Given an input stream, reads until the end
      */
@@ -46,11 +52,11 @@ public class Util {
      */
     public static String extractStringByPrefix(String stringToSearch, String starPrefix, String endPrefix) {
         int startIndex = stringToSearch.indexOf(starPrefix) + starPrefix.length();
-        if(startIndex == -1){
+        if (startIndex == -1) {
             return "";
         }
         int endIndex = stringToSearch.indexOf(endPrefix, startIndex);
-        if(endIndex == -1){
+        if (endIndex == -1) {
             return "";
         }
         return stringToSearch.substring(startIndex, endIndex).trim();

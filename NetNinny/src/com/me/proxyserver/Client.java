@@ -1,15 +1,7 @@
 package com.me.proxyserver;
 
-import com.sun.corba.se.spi.orbutil.fsm.Input;
-
-import java.awt.image.DataBufferByte;
 import java.io.*;
-import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URL;
-import java.net.URLConnection;
-import java.nio.Buffer;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,10 +33,15 @@ public class Client extends Thread {
                 return;
             }
 
-//            System.out.println("\n\n------------------BROWSER REQUEST-------------------\n\n");
-//            System.out.println(getRequest);
+            System.out.println("\n\n----BROWSER REQUEST----\n\n");
+            System.out.println(getRequest);
 
             String parsedHostname = Util.extractStringByPrefix(getRequest, "Host: ", "\n"); //extract important headers
+            /**
+             *
+             * Feature 6 is partly implemented here, header extraction.
+             *
+             */
             String parsedConnection = Util.extractStringByPrefix(getRequest, "Connection: ", "\n"); //extract important headers
             String parsedAcceptedFormat = Util.extractStringByPrefix(getRequest, "Accept: ", "/");
 
@@ -63,9 +60,9 @@ public class Client extends Thread {
             OutputStream os = outgoingSocket.getOutputStream();
 
             PrintWriter webServerStream = new PrintWriter(os, true);
+
             webServerStream.println(getRequest); //sending http request to webserver
 
-            PrintWriter proxyServerStream = new PrintWriter(output, true);
             InputStream is = outgoingSocket.getInputStream();
             StringBuilder builder = new StringBuilder();
 
@@ -80,25 +77,36 @@ public class Client extends Thread {
                 builder.append(new String(bytes, StandardCharsets.UTF_8));
                 index = is.read(by, 0, 256);
             }
-//            System.out.println("----Server Response-----");
+            System.out.println("----SERVER RESPONSE----");
+            System.out.println(builder.toString());
 
-            boolean allowed = true;
+            boolean doWrite = true;
             if (isText) {
                 String response = builder.toString().toLowerCase();
+                /**
+                 *
+                 * Feature 8 is implemented here, content redirect.
+                 *
+                 */
                 if (Util.containsBannedWords(response)) {
+                    System.out.println("CONTAINS BAD WORDS IN CONTENT");
                     String redirect = "HTTP/1.1 301 Moved Permanently\r\nConnection: keep-alive\r\nLocation: http://www.ida.liu.se/~TDTS04/labs/2011/ass2/error2.html\r\n\r\n ";
                     byte[] he = redirect.getBytes();
                     output.write(he);
-                    allowed = false;
+                    doWrite = false;
                 }
             }
 
-            if (allowed) {
+            if (doWrite) {
                 for (byte[] b : bufferBytes) {
-                    //System.out.println(builder.toString());
-                    output.write(b);
+                    try {
+                        output.write(b);
+                    } catch (IOException e) {
+                        output.close();
+                    }
                 }
             }
+
             output.flush();
             os.close();
             is.close();
@@ -106,6 +114,7 @@ public class Client extends Thread {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
     }
 
 }
