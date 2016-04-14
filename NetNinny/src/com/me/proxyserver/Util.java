@@ -1,10 +1,10 @@
 package com.me.proxyserver;
 
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Util {
     private static String[] bannedWords = new String[]{"SpongeBob", "Britney Spears", "Paris Hilton", "Norrkoping", "Norrköping"};
@@ -35,16 +35,60 @@ public class Util {
             if (c.isEmpty()) {
                 if (breakIfEmpty) {
                     break;
-                } else {
-                    String parsedContentType = extractStringByPrefix(builder.toString(), "Content-Type: ", "/");
-                    if (parsedContentType.toLowerCase().contains("image")) {
-
-                    }
                 }
+
             }
             builder.append(c + "\n");
         }
         return builder.toString();
+    }
+
+
+    public static String readHeader(InputStream input) throws IOException{
+        StringBuilder stringBuilder = new StringBuilder();
+
+        int c;
+        int counter = 0;
+        while((c =input.read()) != -1){
+            stringBuilder.append(Character.toString((char) c));
+
+            if(c == 0x0D || c == 0x0A){
+                counter++;
+            }else{
+                counter = 0;
+            }
+
+            if(counter > 3){
+                return stringBuilder.toString();
+            }
+
+        }
+        return stringBuilder.toString();
+    }
+
+
+    public static String readBytes(InputStream is) throws  IOException{
+        StringBuilder builder = new StringBuilder();
+        byte by[] = new byte[256];
+        int index = is.read(by, 0, 256);
+        while (index != -1) {
+            byte[] bytes = new byte[index];
+            System.arraycopy(by, 0, bytes, 0, index);
+            builder.append(new String(bytes, StandardCharsets.UTF_8));
+            index = is.read(by, 0, 256);
+        }
+        return builder.toString();
+    }
+
+
+    public static void streamContent(InputStream input, OutputStream output) throws IOException{
+
+        byte by[] = new byte[256];
+        int index = input.read(by, 0, 256);
+        while (index != -1) {
+            output.write(by, 0, index);
+            index = input.read(by, 0, 256);
+        }
     }
 
     /**

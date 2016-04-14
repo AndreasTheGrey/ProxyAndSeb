@@ -17,12 +17,12 @@ public class ProxyServer {
          * Feature 7 is implemented here, custom port.
          *
          */
-        Scanner input = new Scanner(System.in);
-        System.out.print("Please enter a port number: ");
-        String answer = input.nextLine();
-        if(!answer.equals("")){
-            port = Integer.parseInt(answer);
-        }
+//        Scanner input = new Scanner(System.in);
+//        System.out.print("Please enter a port number: ");
+//        String answer = input.nextLine();
+//        if(!answer.equals("")){
+//            port = Integer.parseInt(answer);
+//        }
 
 
         ss = new ServerSocket(port);
