@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="NetNinny:jar2">
+    <output-path>$PROJECT_DIR$/out/artifacts/NetNinny_jar2</output-path>
+    <root id="archive" name="NetNinny.jar">
+      <element id="module-output" name="NetNinny" />
+    </root>
+  </artifact>
+</component>

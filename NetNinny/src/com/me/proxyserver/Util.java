@@ -3,8 +3,6 @@ package com.me.proxyserver;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
 
 public class Util {
     private static String[] bannedWords = new String[]{"SpongeBob", "Britney Spears", "Paris Hilton", "Norrkoping", "Norrköping"};
@@ -24,29 +22,10 @@ public class Util {
     }
 
     /**
-     * Given an input stream, reads until the end
+     * Given an input stream, reads until the end of header
      */
-    public static String readStream(InputStream input, boolean breakIfEmpty) throws IOException {
-        BufferedReader br = new BufferedReader(new InputStreamReader(input));
-        StringBuilder builder = new StringBuilder();
-
-        String c;
-        while ((c = br.readLine()) != null) {
-            if (c.isEmpty()) {
-                if (breakIfEmpty) {
-                    break;
-                }
-
-            }
-            builder.append(c + "\n");
-        }
-        return builder.toString();
-    }
-
-
     public static String readHeader(InputStream input) throws IOException{
         StringBuilder stringBuilder = new StringBuilder();
-
         int c;
         int counter = 0;
         while((c =input.read()) != -1){
@@ -66,28 +45,32 @@ public class Util {
         return stringBuilder.toString();
     }
 
-
+    /**
+     * Given an input stream, reads until the end
+     */
     public static String readBytes(InputStream is) throws  IOException{
         StringBuilder builder = new StringBuilder();
-        byte by[] = new byte[256];
-        int index = is.read(by, 0, 256);
+        byte by[] = new byte[1024];
+        int index = is.read(by, 0, 1024);
         while (index != -1) {
             byte[] bytes = new byte[index];
             System.arraycopy(by, 0, bytes, 0, index);
             builder.append(new String(bytes, StandardCharsets.UTF_8));
-            index = is.read(by, 0, 256);
+            index = is.read(by, 0, 1024);
         }
         return builder.toString();
     }
 
 
+    /**
+     * Streams the content.
+     */
     public static void streamContent(InputStream input, OutputStream output) throws IOException{
-
-        byte by[] = new byte[256];
-        int index = input.read(by, 0, 256);
+        byte by[] = new byte[1024];
+        int index = input.read(by, 0, 1024);
         while (index != -1) {
             output.write(by, 0, index);
-            index = input.read(by, 0, 256);
+            index = input.read(by, 0, 1024);
         }
     }
 
