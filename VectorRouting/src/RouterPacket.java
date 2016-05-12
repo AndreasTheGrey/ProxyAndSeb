@@ -3,13 +3,13 @@ public class RouterPacket implements Cloneable {
     int sourceid;       /* id of sending router sending this pkt */
     int destid;         /* id of router to which pkt being sent
                          (must be an immediate neighbor) */
-    int[] mincost = new int[RouterSimulator5.NUM_NODES];    /* min cost to node 0 ... 3 */
+    int[] mincost = new int[RouterSimulator.NUM_NODES];    /* min cost to node 0 ... 3 */
 
 
     RouterPacket(int sourceID, int destID, int[] mincosts) {
         this.sourceid = sourceID;
         this.destid = destID;
-        System.arraycopy(mincosts, 0, this.mincost, 0, RouterSimulator5.NUM_NODES);
+        System.arraycopy(mincosts, 0, this.mincost, 0, RouterSimulator.NUM_NODES);
     }
 
     public Object clone() {
