@@ -3,31 +3,37 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class RouterNode {
-    private int myID;
+    private int myRouter;
     private GuiTextArea myGUI;
     private RouterSimulator sim;
     private int[] routeBy = new int[RouterSimulator.NUM_NODES];
     private int[][] myTable;
+    private int[] myRawCosts;
 
-    //private int[] neighbours = new int[RouterSimulator.NUM_NODES];
-    //private int[] nonNeighbours = new int[RouterSimulator.NUM_NODES];
+    public static boolean POISON_REVERSE = true;
+
     private Set<Integer> neighbours = new HashSet<Integer>();
     private Set<Integer> nonNeighbours = new HashSet<Integer>();
+
     //--------------------------------------------------
     public RouterNode(int ID, RouterSimulator sim, int[] costs) {
-        myID = ID;
+        myRouter = ID;
         this.sim = sim;
         myGUI = new GuiTextArea("  Output window for Router #" + ID + "  ");
-
+        myRawCosts = new int[RouterSimulator.NUM_NODES];
         myTable = new int[RouterSimulator.NUM_NODES][RouterSimulator.NUM_NODES];
 
         for (int i = 0; i < costs.length; i++) {
-            if(myID != i) {
+            if (myRouter != i) {
                 if (costs[i] != 999) {
                     neighbours.add(i);
                     myGUI.println("My neighbour " + i);
-                }else{
+                } else {
                     nonNeighbours.add(i);
+
+                    for (int j = 0; j < RouterSimulator.NUM_NODES; j++) {
+                        myTable[i][j] = RouterSimulator.INFINITY;
+                    }
                     myGUI.println("My non neighbour " + i);
                 }
             }
@@ -35,11 +41,11 @@ public class RouterNode {
 
 
         for (int row = 0; row < costs.length; row++) {
-            myTable[myID][row] = costs[row];
-            if(row != myID) {
-                routeBy[row] = row;
-            }
+            myTable[myRouter][row] = costs[row];
+            routeBy[row] = row;
         }
+        System.arraycopy(costs, 0, myRawCosts, 0, RouterSimulator.NUM_NODES);
+        sendUpdate();
         printDistanceTable();
     }
 
@@ -51,114 +57,110 @@ public class RouterNode {
             myGUI.print(pkt.mincost[i] + " ,");
         }
         myGUI.println(pkt.mincost[pkt.mincost.length - 1] + "]");
-        System.arraycopy(pkt.mincost,0,myTable[pkt.sourceid],0, RouterSimulator.NUM_NODES);
+        System.arraycopy(pkt.mincost, 0, myTable[pkt.sourceid], 0, RouterSimulator.NUM_NODES);
 
-        boolean updated = recalculateOwn();
+        boolean updated = updateTable();
         printDistanceTable();
-        if(updated) {
+        if (updated) {
             sendUpdate();
         }
 
     }
 
 
+    /**
+     * Updates the table, returns true if any updates occured.
+     *
+     * @return boolean
+     */
+    public boolean updateTable() {
+        /*
+            VARIABLES
+            ----------
+            myTable
+            myRouter
+            RouterSimulator.NUM_NODES
+            RouterSimulator.INFINITY
+            ----------
+         */
 
-    private boolean recalculateOwn(){
-        boolean recalculated = false;
+        // Save our old table.
+        int[] oldTable = new int[RouterSimulator.NUM_NODES];
+        System.arraycopy(myTable[myRouter], 0, oldTable, 0, RouterSimulator.NUM_NODES);
+        // Reset our costs to all routers, since we MIGHT change them.
+        System.arraycopy(myRawCosts, 0, myTable[myRouter], 0, RouterSimulator.NUM_NODES);
 
-        int[] shortestPath = new int[RouterSimulator.NUM_NODES];
-        System.arraycopy(myTable[myID],0,shortestPath,0, RouterSimulator.NUM_NODES);
-        for (int i = 0; i < RouterSimulator.NUM_NODES; i++) {
-            //shortestPath[i] = 999;
+        // Reset the routes to original state.
+        for (int row = 0; row < RouterSimulator.NUM_NODES; row++) {
+            routeBy[row] = row;
         }
 
-
-        for (int node = 0; node < RouterSimulator.NUM_NODES; node++) {
-            //dont update our own table
-            if(node != myID){
-
-                for (int row = 0; row < RouterSimulator.NUM_NODES; row++) {
-                    if(myTable[node][row] != 0 && myTable[node][row] != RouterSimulator.INFINITY){
-                        if(isBetterPath(node,row,shortestPath)){
-                            insertNewPath(node,row,shortestPath);
-                            routeBy[node] = row;
-                            recalculated = true;
-                            myGUI.println("Found shorter path, updating node " + node + " via " + row + " with value " +
-                                    myTable[node][row] + myTable[myID][node]);
+        // Iterate through our table, to sum the costs and overwrite current if the
+        // new cost is less.
+        for (int router = 0; router < RouterSimulator.NUM_NODES; router++) {
+            if (router != myRouter) {
+                for (int index = 0; index < RouterSimulator.NUM_NODES; index++) {
+                    if (index != myRouter) {
+                        myGUI.println("Checking router: " + router + ".");
+                        myGUI.println("Cost to router: " + index + " is " + myTable[router][index] + ".");
+                        int costToRoute = myTable[myRouter][router] + myTable[router][index];
+                        if (costToRoute < myTable[myRouter][index]) {
+                            myGUI.println("COST WAS LESS!");
+                            myGUI.println("Old cost: " + myTable[myRouter][index] + ".");
+                            myGUI.println("New cost: " + costToRoute + " routed through " + router + ".");
+                            myTable[myRouter][index] = costToRoute;
+                            routeBy[index] = router;
                         }
                     }
                 }
             }
         }
 
-        if(recalculated) {
-            System.arraycopy(shortestPath, 0, myTable[myID], 0, RouterSimulator.NUM_NODES);
+        // Compare the old table with the new to see if we have to send any updates or if the values are the same.
+        boolean shouldSendUpdates = false;
+        for (int i = 0; i < RouterSimulator.NUM_NODES; i++) {
+            if (oldTable[i] != myTable[myRouter][i]) {
+                shouldSendUpdates = true;
+                break;
+            }
         }
-        return recalculated;
+
+        return shouldSendUpdates;
 
     }
-
-    private void insertNewPath(int node, int row, int[] shortestPath) {
-        shortestPath[row] = myTable[node][row] + myTable[myID][node];
-    }
-
-
-    private boolean isBetterPath(int node, int row, int[] shortestPath) {
-        //check if the new routing is better than what I already have
-        return myTable[node][row] + myTable[myID][node] < shortestPath[row];
-    }
-
 
     //--------------------------------------------------//
     private void sendUpdate() {
-        //TODO we should not send updates to NON neighbours
-        myGUI.print("Sending update from node " + myID);
-        for (int id = 0; id < RouterSimulator.NUM_NODES; id++) {
+        myGUI.print("Sending update from node " + myRouter);
+        for (int router = 0; router < RouterSimulator.NUM_NODES; router++) {
 
-            if (id != myID && !nonNeighbours.contains(id)) {
+            if (router != myRouter && !nonNeighbours.contains(router)) {
 
                 int[] tempValues = new int[RouterSimulator.NUM_NODES];
-                System.arraycopy(myTable[myID],0,tempValues,0, RouterSimulator.NUM_NODES);
+                System.arraycopy(myTable[myRouter], 0, tempValues, 0, RouterSimulator.NUM_NODES);
 
-                for (int row = 0; row < RouterSimulator.NUM_NODES; row++) {
-                    //loop through and set routes based on a path(id) to infinity
-                    if(routeBy[row] == id) {
-                        tempValues[row] = RouterSimulator.INFINITY;
+                if (POISON_REVERSE) {
+                    for (int index = 0; index < RouterSimulator.NUM_NODES; index++) {
+                        //loop through and set routes based on a path(id) to infinity
+                        if (routeBy[index] == router) {
+                            tempValues[index] = RouterSimulator.INFINITY;
+                        }
                     }
-                }
 
-                tempValues[myID] = 0;
-                tempValues[id] = RouterSimulator.INFINITY;
-                myGUI.print(" "+ Arrays.toString(tempValues) + " ");
-                RouterPacket packet = new RouterPacket(myID, id, tempValues);
+                    tempValues[myRouter] = 0;
+                    tempValues[router] = RouterSimulator.INFINITY;
+                }
+                myGUI.print(" " + Arrays.toString(tempValues) + " ");
+                RouterPacket packet = new RouterPacket(myRouter, router, tempValues);
                 sim.toLayer2(packet);
             }
         }
         myGUI.println();
     }
 
-    /*for (int host = 0; host < myTable.length; host++) {
-            //we should only update if our own via table is updated.
-            if (host != myID) {
-                //update our own route by table and choose the least costy route
-                for (int values = 0; values < myTable.length; values++) {
-                   // Ska vara host på andra termen ist för values... buggar doock så ändrade tillbaka.
-                    int newValue = myTable[host][values] + myTable[myID][host];
-
-                    if (shortestPath[values] > newValue) {
-                        shortestPath[values] = newValue;
-                        routeBy[values] = host;
-                        recalculated = true;
-                        myGUI.println("Changing routeBy value to " + host);
-                    }
-                }
-            }
-        }*/
-
-
     //--------------------------------------------------
     public void printDistanceTable() {
-        myGUI.println("Current table for " + myID +
+        myGUI.println("Current table for " + myRouter +
                 "  at time " + sim.getClocktime());
         for (int row = 0; row < myTable.length; row++) {
             for (int col = 0; col < myTable.length; col++) {
@@ -177,10 +179,14 @@ public class RouterNode {
 
     //--------------------------------------------------
     public void updateLinkCost(int dest, int newcost) {
-        myGUI.println("Updating link cost between " + myID + " - " + dest + " to " + newcost);
-        myTable[myID][dest] = newcost;
-        routeBy[dest] = dest;
-        sendUpdate();
+        if (neighbours.contains(dest)) {
+            myGUI.println("Updating link cost between " + myRouter + " - " + dest + " to " + newcost);
+            myRawCosts[dest] = newcost;
+            boolean updated = updateTable();
+            if (updated) {
+                sendUpdate();
+            }
+        }
     }
 
 }
